@@ -5,6 +5,8 @@ import com.daoninhthai.payment.entity.User;
 import com.daoninhthai.payment.entity.Wallet;
 import com.daoninhthai.payment.entity.enums.TransactionStatus;
 import com.daoninhthai.payment.entity.enums.TransactionType;
+import com.daoninhthai.payment.exception.InsufficientBalanceException;
+import com.daoninhthai.payment.exception.ResourceNotFoundException;
 import com.daoninhthai.payment.repository.TransactionRepository;
 import com.daoninhthai.payment.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +36,7 @@ public class WalletService {
     @Transactional
     public Transaction deposit(Long walletId, BigDecimal amount, String description) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + walletId));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
 
         BigDecimal balanceBefore = wallet.getBalance();
         BigDecimal balanceAfter = balanceBefore.add(amount);
@@ -59,12 +61,13 @@ public class WalletService {
     @Transactional
     public Transaction withdraw(Long walletId, BigDecimal amount, String description) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + walletId));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
 
         BigDecimal balanceBefore = wallet.getBalance();
 
         if (balanceBefore.compareTo(amount) < 0) {
-            throw new RuntimeException("Insufficient balance. Current balance: " + balanceBefore);
+            throw new InsufficientBalanceException(
+                    "Insufficient balance. Current: " + balanceBefore + ", Requested: " + amount);
         }
 
         BigDecimal balanceAfter = balanceBefore.subtract(amount);
@@ -88,12 +91,12 @@ public class WalletService {
 
     public BigDecimal getBalance(Long walletId) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + walletId));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
         return wallet.getBalance();
     }
 
     public Wallet getWallet(Long walletId) {
         return walletRepository.findById(walletId)
-                .orElseThrow(() -> new RuntimeException("Wallet not found with id: " + walletId));
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
     }
 }
