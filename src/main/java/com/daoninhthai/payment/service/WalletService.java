@@ -89,6 +89,61 @@ public class WalletService {
         return transactionRepository.save(transaction);
     }
 
+    @Transactional
+    public Transaction[] transfer(Long fromWalletId, Long toWalletId, BigDecimal amount, String description) {
+        Wallet fromWallet = walletRepository.findById(fromWalletId)
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", fromWalletId));
+        Wallet toWallet = walletRepository.findById(toWalletId)
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", toWalletId));
+
+        BigDecimal senderBalanceBefore = fromWallet.getBalance();
+
+        if (senderBalanceBefore.compareTo(amount) < 0) {
+            throw new InsufficientBalanceException(
+                    "Insufficient balance. Current: " + senderBalanceBefore + ", Requested: " + amount);
+        }
+
+        String referenceId = UUID.randomUUID().toString();
+
+        // Debit sender
+        BigDecimal senderBalanceAfter = senderBalanceBefore.subtract(amount);
+        fromWallet.setBalance(senderBalanceAfter);
+        walletRepository.save(fromWallet);
+
+        Transaction debitTransaction = Transaction.builder()
+                .wallet(fromWallet)
+                .type(TransactionType.TRANSFER)
+                .amount(amount.negate())
+                .status(TransactionStatus.COMPLETED)
+                .referenceId(referenceId)
+                .description("Transfer to wallet #" + toWalletId + ": " + description)
+                .balanceBefore(senderBalanceBefore)
+                .balanceAfter(senderBalanceAfter)
+                .build();
+
+        // Credit receiver
+        BigDecimal receiverBalanceBefore = toWallet.getBalance();
+        BigDecimal receiverBalanceAfter = receiverBalanceBefore.add(amount);
+        toWallet.setBalance(receiverBalanceAfter);
+        walletRepository.save(toWallet);
+
+        Transaction creditTransaction = Transaction.builder()
+                .wallet(toWallet)
+                .type(TransactionType.TRANSFER)
+                .amount(amount)
+                .status(TransactionStatus.COMPLETED)
+                .referenceId(referenceId + "-credit")
+                .description("Transfer from wallet #" + fromWalletId + ": " + description)
+                .balanceBefore(receiverBalanceBefore)
+                .balanceAfter(receiverBalanceAfter)
+                .build();
+
+        transactionRepository.save(debitTransaction);
+        transactionRepository.save(creditTransaction);
+
+        return new Transaction[]{debitTransaction, creditTransaction};
+    }
+
     public BigDecimal getBalance(Long walletId) {
         Wallet wallet = walletRepository.findById(walletId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
