@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -22,6 +23,7 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final WebhookService webhookService;
 
     @Transactional
     public Wallet createWallet(User user) {
@@ -55,7 +57,13 @@ public class WalletService {
                 .balanceAfter(balanceAfter)
                 .build();
 
-        return transactionRepository.save(transaction);
+        transaction = transactionRepository.save(transaction);
+
+        // Send webhook notification
+        webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.deposit",
+                Map.of("walletId", walletId, "amount", amount, "balance", balanceAfter));
+
+        return transaction;
     }
 
     @Transactional
@@ -86,7 +94,13 @@ public class WalletService {
                 .balanceAfter(balanceAfter)
                 .build();
 
-        return transactionRepository.save(transaction);
+        transaction = transactionRepository.save(transaction);
+
+        // Send webhook notification
+        webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.withdrawal",
+                Map.of("walletId", walletId, "amount", amount, "balance", balanceAfter));
+
+        return transaction;
     }
 
     @Transactional
@@ -140,6 +154,15 @@ public class WalletService {
 
         transactionRepository.save(debitTransaction);
         transactionRepository.save(creditTransaction);
+
+        // Send webhook notifications
+        webhookService.sendWebhookEvent(fromWallet.getUser().getId(), "transaction.transfer.sent",
+                Map.of("fromWalletId", fromWalletId, "toWalletId", toWalletId,
+                        "amount", amount, "balance", senderBalanceAfter));
+
+        webhookService.sendWebhookEvent(toWallet.getUser().getId(), "transaction.transfer.received",
+                Map.of("fromWalletId", fromWalletId, "toWalletId", toWalletId,
+                        "amount", amount, "balance", receiverBalanceAfter));
 
         return new Transaction[]{debitTransaction, creditTransaction};
     }
