@@ -7,6 +7,7 @@ import com.daoninhthai.payment.dto.response.TransactionResponse;
 import com.daoninhthai.payment.dto.response.WalletResponse;
 import com.daoninhthai.payment.entity.Transaction;
 import com.daoninhthai.payment.entity.Wallet;
+import com.daoninhthai.payment.service.IdempotencyService;
 import com.daoninhthai.payment.service.TransactionService;
 import com.daoninhthai.payment.service.WalletService;
 import jakarta.validation.Valid;
@@ -17,6 +18,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/wallets")
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class WalletController {
 
     private final WalletService walletService;
     private final TransactionService transactionService;
+    private final IdempotencyService idempotencyService;
 
     @GetMapping("/{id}")
     public ResponseEntity<WalletResponse> getWallet(@PathVariable Long id) {
@@ -34,26 +38,71 @@ public class WalletController {
     @PostMapping("/{id}/deposit")
     public ResponseEntity<TransactionResponse> deposit(
             @PathVariable Long id,
-            @Valid @RequestBody DepositRequest request) {
+            @Valid @RequestBody DepositRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+
+        if (idempotencyKey != null) {
+            Optional<Object> cached = idempotencyService.checkAndGet(idempotencyKey);
+            if (cached.isPresent()) {
+                return ResponseEntity.ok((TransactionResponse) cached.get());
+            }
+        }
+
         Transaction transaction = walletService.deposit(id, request.getAmount(), request.getDescription());
-        return ResponseEntity.ok(TransactionResponse.fromEntity(transaction));
+        TransactionResponse response = TransactionResponse.fromEntity(transaction);
+
+        if (idempotencyKey != null) {
+            idempotencyService.store(idempotencyKey, response);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/withdraw")
     public ResponseEntity<TransactionResponse> withdraw(
             @PathVariable Long id,
-            @Valid @RequestBody WithdrawRequest request) {
+            @Valid @RequestBody WithdrawRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+
+        if (idempotencyKey != null) {
+            Optional<Object> cached = idempotencyService.checkAndGet(idempotencyKey);
+            if (cached.isPresent()) {
+                return ResponseEntity.ok((TransactionResponse) cached.get());
+            }
+        }
+
         Transaction transaction = walletService.withdraw(id, request.getAmount(), request.getDescription());
-        return ResponseEntity.ok(TransactionResponse.fromEntity(transaction));
+        TransactionResponse response = TransactionResponse.fromEntity(transaction);
+
+        if (idempotencyKey != null) {
+            idempotencyService.store(idempotencyKey, response);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/transfer")
     public ResponseEntity<TransactionResponse> transfer(
             @PathVariable Long id,
-            @Valid @RequestBody TransferRequest request) {
+            @Valid @RequestBody TransferRequest request,
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
+
+        if (idempotencyKey != null) {
+            Optional<Object> cached = idempotencyService.checkAndGet(idempotencyKey);
+            if (cached.isPresent()) {
+                return ResponseEntity.ok((TransactionResponse) cached.get());
+            }
+        }
+
         Transaction[] transactions = walletService.transfer(
                 id, request.getToWalletId(), request.getAmount(), request.getDescription());
-        return ResponseEntity.ok(TransactionResponse.fromEntity(transactions[0]));
+        TransactionResponse response = TransactionResponse.fromEntity(transactions[0]);
+
+        if (idempotencyKey != null) {
+            idempotencyService.store(idempotencyKey, response);
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/transactions")
