@@ -5,6 +5,7 @@ import com.daoninhthai.payment.entity.User;
 import com.daoninhthai.payment.entity.Wallet;
 import com.daoninhthai.payment.entity.enums.TransactionStatus;
 import com.daoninhthai.payment.entity.enums.TransactionType;
+import com.daoninhthai.payment.exception.BadRequestException;
 import com.daoninhthai.payment.exception.InsufficientBalanceException;
 import com.daoninhthai.payment.exception.ResourceNotFoundException;
 import com.daoninhthai.payment.repository.TransactionRepository;
@@ -59,7 +60,6 @@ public class WalletService {
 
         transaction = transactionRepository.save(transaction);
 
-        // Send webhook notification
         webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.deposit",
                 Map.of("walletId", walletId, "amount", amount, "balance", balanceAfter));
 
@@ -96,7 +96,6 @@ public class WalletService {
 
         transaction = transactionRepository.save(transaction);
 
-        // Send webhook notification
         webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.withdrawal",
                 Map.of("walletId", walletId, "amount", amount, "balance", balanceAfter));
 
@@ -105,6 +104,10 @@ public class WalletService {
 
     @Transactional
     public Transaction[] transfer(Long fromWalletId, Long toWalletId, BigDecimal amount, String description) {
+        if (fromWalletId.equals(toWalletId)) {
+            throw new BadRequestException("Cannot transfer to your own wallet");
+        }
+
         Wallet fromWallet = walletRepository.findById(fromWalletId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", fromWalletId));
         Wallet toWallet = walletRepository.findById(toWalletId)
@@ -155,7 +158,6 @@ public class WalletService {
         transactionRepository.save(debitTransaction);
         transactionRepository.save(creditTransaction);
 
-        // Send webhook notifications
         webhookService.sendWebhookEvent(fromWallet.getUser().getId(), "transaction.transfer.sent",
                 Map.of("fromWalletId", fromWalletId, "toWalletId", toWalletId,
                         "amount", amount, "balance", senderBalanceAfter));
