@@ -3,10 +3,12 @@ package com.daoninhthai.payment.controller;
 import com.daoninhthai.payment.dto.request.DepositRequest;
 import com.daoninhthai.payment.dto.request.TransferRequest;
 import com.daoninhthai.payment.dto.request.WithdrawRequest;
+import com.daoninhthai.payment.dto.response.PageResponse;
 import com.daoninhthai.payment.dto.response.TransactionResponse;
 import com.daoninhthai.payment.dto.response.WalletResponse;
 import com.daoninhthai.payment.entity.Transaction;
 import com.daoninhthai.payment.entity.Wallet;
+import com.daoninhthai.payment.entity.enums.TransactionType;
 import com.daoninhthai.payment.service.IdempotencyService;
 import com.daoninhthai.payment.service.TransactionService;
 import com.daoninhthai.payment.service.WalletService;
@@ -106,13 +108,14 @@ public class WalletController {
     }
 
     @GetMapping("/{id}/transactions")
-    public ResponseEntity<Page<TransactionResponse>> getTransactions(
+    public ResponseEntity<PageResponse<TransactionResponse>> getTransactions(
             @PathVariable Long id,
+            @RequestParam(required = false) TransactionType type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Transaction> transactions = transactionService.getTransactionHistory(id, pageable);
-        Page<TransactionResponse> response = transactions.map(TransactionResponse::fromEntity);
-        return ResponseEntity.ok(response);
+        Page<Transaction> transactions = transactionService.getTransactionHistory(id, type, pageable);
+        Page<TransactionResponse> responsePage = transactions.map(TransactionResponse::fromEntity);
+        return ResponseEntity.ok(PageResponse.from(responsePage));
     }
 }

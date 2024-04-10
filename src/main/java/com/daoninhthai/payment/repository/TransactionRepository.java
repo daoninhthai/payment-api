@@ -1,6 +1,7 @@
 package com.daoninhthai.payment.repository;
 
 import com.daoninhthai.payment.entity.Transaction;
+import com.daoninhthai.payment.entity.enums.TransactionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,8 @@ import java.util.Optional;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
     Page<Transaction> findByWalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable);
+
+    Page<Transaction> findByWalletIdAndTypeOrderByCreatedAtDesc(Long walletId, TransactionType type, Pageable pageable);
 
     Optional<Transaction> findByReferenceId(String referenceId);
 }
