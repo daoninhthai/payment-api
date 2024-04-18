@@ -169,6 +169,62 @@ public class WalletService {
         return new Transaction[]{debitTransaction, creditTransaction};
     }
 
+    @Transactional
+    public Transaction refund(Long transactionId, String reason) {
+        Transaction originalTransaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+
+        if (originalTransaction.getStatus() != TransactionStatus.COMPLETED) {
+            throw new BadRequestException("Only completed transactions can be refunded");
+        }
+
+        if (originalTransaction.getType() != TransactionType.DEPOSIT
+                && originalTransaction.getType() != TransactionType.TRANSFER) {
+            throw new BadRequestException("Only deposit and transfer transactions can be refunded");
+        }
+
+        Wallet wallet = originalTransaction.getWallet();
+        BigDecimal refundAmount = originalTransaction.getAmount().abs();
+        BigDecimal balanceBefore = wallet.getBalance();
+        BigDecimal balanceAfter = balanceBefore.add(refundAmount);
+
+        // If it was a deposit, we subtract (reverse the deposit)
+        if (originalTransaction.getType() == TransactionType.DEPOSIT) {
+            if (balanceBefore.compareTo(refundAmount) < 0) {
+                throw new InsufficientBalanceException(
+                        "Insufficient balance for refund. Current: " + balanceBefore + ", Refund: " + refundAmount);
+            }
+            balanceAfter = balanceBefore.subtract(refundAmount);
+        }
+
+        wallet.setBalance(balanceAfter);
+        walletRepository.save(wallet);
+
+        // Mark original transaction as REFUNDED
+        originalTransaction.setStatus(TransactionStatus.REFUNDED);
+        transactionRepository.save(originalTransaction);
+
+        // Create refund transaction
+        Transaction refundTransaction = Transaction.builder()
+                .wallet(wallet)
+                .type(TransactionType.REFUND)
+                .amount(refundAmount)
+                .status(TransactionStatus.COMPLETED)
+                .referenceId(UUID.randomUUID().toString())
+                .description("Refund for transaction #" + transactionId + ": " + reason)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(balanceAfter)
+                .build();
+
+        refundTransaction = transactionRepository.save(refundTransaction);
+
+        webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.refund",
+                Map.of("originalTransactionId", transactionId, "refundAmount", refundAmount,
+                        "balance", balanceAfter, "reason", reason));
+
+        return refundTransaction;
+    }
+
     public BigDecimal getBalance(Long walletId) {
         Wallet wallet = walletRepository.findById(walletId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));

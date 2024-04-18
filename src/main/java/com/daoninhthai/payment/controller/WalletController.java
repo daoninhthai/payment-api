@@ -1,6 +1,7 @@
 package com.daoninhthai.payment.controller;
 
 import com.daoninhthai.payment.dto.request.DepositRequest;
+import com.daoninhthai.payment.dto.request.RefundRequest;
 import com.daoninhthai.payment.dto.request.TransferRequest;
 import com.daoninhthai.payment.dto.request.WithdrawRequest;
 import com.daoninhthai.payment.dto.response.PageResponse;
@@ -105,6 +106,14 @@ public class WalletController {
         }
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/transactions/{id}/refund")
+    public ResponseEntity<TransactionResponse> refund(
+            @PathVariable Long id,
+            @Valid @RequestBody RefundRequest request) {
+        Transaction transaction = walletService.refund(id, request.getReason());
+        return ResponseEntity.ok(TransactionResponse.fromEntity(transaction));
     }
 
     @GetMapping("/{id}/transactions")
