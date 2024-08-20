@@ -17,6 +17,30 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: payment-api
+
 jwt:
   secret: ${JWT_SECRET:dGhpc0lzQVZlcnlMb25nU2VjcmV0S2V5Rm9ySldUU2lnbmluZ1B1cnBvc2VzMTIzNDU2Nzg5MA==}
   expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+stripe:
+  api:
+    secret-key: ${STRIPE_SECRET_KEY:sk_test_default}
+    publishable-key: ${STRIPE_PUBLISHABLE_KEY:pk_test_default}
+  webhook:
+    secret: ${STRIPE_WEBHOOK_SECRET:whsec_default}
