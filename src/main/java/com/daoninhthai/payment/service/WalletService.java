@@ -25,6 +25,7 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
     private final WebhookService webhookService;
+    private final NotificationService notificationService;
 
     @Transactional
     public Wallet createWallet(User user) {
@@ -63,6 +64,11 @@ public class WalletService {
         webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.deposit",
                 Map.of("walletId", walletId, "amount", amount, "balance", balanceAfter));
 
+        // Send deposit notification
+        notificationService.sendPaymentConfirmation(
+                wallet.getUser().getEmail(), null,
+                transaction.getReferenceId(), amount, "DEPOSIT");
+
         return transaction;
     }
 
@@ -98,6 +104,13 @@ public class WalletService {
 
         webhookService.sendWebhookEvent(wallet.getUser().getId(), "transaction.withdrawal",
                 Map.of("walletId", walletId, "amount", amount, "balance", balanceAfter));
+
+        // Send withdrawal notification and check for low balance
+        notificationService.sendPaymentConfirmation(
+                wallet.getUser().getEmail(), null,
+                transaction.getReferenceId(), amount, "WITHDRAWAL");
+        notificationService.sendLowBalanceAlert(
+                wallet.getUser().getEmail(), null, walletId, balanceAfter);
 
         return transaction;
     }
@@ -165,6 +178,15 @@ public class WalletService {
         webhookService.sendWebhookEvent(toWallet.getUser().getId(), "transaction.transfer.received",
                 Map.of("fromWalletId", fromWalletId, "toWalletId", toWalletId,
                         "amount", amount, "balance", receiverBalanceAfter));
+
+        // Send transfer notifications to both parties
+        notificationService.sendTransferNotification(
+                fromWallet.getUser().getEmail(), null,
+                toWallet.getUser().getEmail(), null,
+                fromWalletId, toWalletId, amount);
+        // Check low balance for sender
+        notificationService.sendLowBalanceAlert(
+                fromWallet.getUser().getEmail(), null, fromWalletId, senderBalanceAfter);
 
         return new Transaction[]{debitTransaction, creditTransaction};
     }

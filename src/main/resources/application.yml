@@ -38,6 +38,11 @@ jwt:
   secret: ${JWT_SECRET:dGhpc0lzQVZlcnlMb25nU2VjcmV0S2V5Rm9ySldUU2lnbmluZ1B1cnBvc2VzMTIzNDU2Nzg5MA==}
   expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID:AC_default}
+  auth-token: ${TWILIO_AUTH_TOKEN:default_token}
+  from-number: ${TWILIO_FROM_NUMBER:+10000000000}
+
 stripe:
   api:
     secret-key: ${STRIPE_SECRET_KEY:sk_test_default}
