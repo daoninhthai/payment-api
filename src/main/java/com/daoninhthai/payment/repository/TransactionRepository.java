@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,4 +19,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Page<Transaction> findByWalletIdAndTypeOrderByCreatedAtDesc(Long walletId, TransactionType type, Pageable pageable);
 
     Optional<Transaction> findByReferenceId(String referenceId);
+
+    List<Transaction> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+    List<Transaction> findByTypeAndCreatedAtBetween(TransactionType type, LocalDateTime start, LocalDateTime end);
 }
